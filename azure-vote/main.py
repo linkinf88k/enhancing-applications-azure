@@ -29,7 +29,10 @@ app = Flask(__name__)
 app.config.from_pyfile('config_file.cfg')
 connectionString = app.config['CONNECTION_STRING']
 
-# Logging
+# For metrics
+stats = stats_module.stats
+view_manager = stats.view_manager
+
 # Logging
 config_integration.trace_integrations(['logging'])
 config_integration.trace_integrations(['requests'])
@@ -55,13 +58,12 @@ tracer = Tracer(
     sampler=ProbabilitySampler(1.0),
 )
 
-
 # Requests
 middleware = FlaskMiddleware(
     app,
     exporter=AzureExporter(connection_string=connectionString),
     sampler=ProbabilitySampler(rate=1.0),
-
+)
 
 if ("VOTE1VALUE" in os.environ and os.environ['VOTE1VALUE']):
     button1 = os.environ['VOTE1VALUE']
@@ -79,7 +81,24 @@ else:
     title = app.config['TITLE']
 
 # Redis Connection
-r = redis.Redis()
+# Comment/remove the next two lines of code.
+# Redis Connection to a local server running on the same machine where the current FLask app is running. 
+# r = redis.Redis()
+# Redis configurations
+redis_server = os.environ['REDIS']
+
+# Redis Connection to another container
+try:
+    if "REDIS_PWD" in os.environ:
+        r = redis.StrictRedis(host=redis_server,
+                        port=6379,
+                        password=os.environ['REDIS_PWD'])
+    else:
+        r = redis.Redis(redis_server)
+    r.ping()
+except redis.ConnectionError:
+    exit('Failed to connect to Redis, terminating.')
+
 
 # Change title to host name to demo NLB
 if app.config['SHOWHOST'] == "true":
@@ -96,11 +115,11 @@ def index():
 
         # Get current values
         vote1 = r.get(button1).decode('utf-8')
-        # TODO: use tracer object to trace cat vote
+        # use tracer object to trace cat vote
         tracer.span(name=button1)
 
         vote2 = r.get(button2).decode('utf-8')
-        # TODO: use tracer object to trace dog vote
+        # use tracer object to trace dog vote
         tracer.span(name=button2)
 
         # Return index with values
@@ -115,12 +134,12 @@ def index():
             r.set(button2,0)
             vote1 = r.get(button1).decode('utf-8')
             properties = {'custom_dimensions': {'Cats Vote': vote1}}
-            # TODO: use logger object to log cat vote
+            # use logger object to log cat vote
             logger.info('Cat Voted', extra=properties)
 
             vote2 = r.get(button2).decode('utf-8')
             properties = {'custom_dimensions': {'Dogs Vote': vote2}}
-            # TODO: use logger object to log dog vote
+            # use logger object to log dog vote
             logger.info('Dog Voted', extra=properties)
             tracer.span(name=button2)
 
