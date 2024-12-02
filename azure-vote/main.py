@@ -61,6 +61,7 @@ middleware = FlaskMiddleware(
     app,
     exporter=AzureExporter(connection_string=connectionString),
     sampler=ProbabilitySampler(rate=1.0),
+)
 
 
 if ("VOTE1VALUE" in os.environ and os.environ['VOTE1VALUE']):
