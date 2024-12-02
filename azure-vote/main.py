@@ -29,7 +29,10 @@ app = Flask(__name__)
 app.config.from_pyfile('config_file.cfg')
 connectionString = app.config['CONNECTION_STRING']
 
-# Logging
+# For metrics
+stats = stats_module.stats
+view_manager = stats.view_manager
+
 # Logging
 config_integration.trace_integrations(['logging'])
 config_integration.trace_integrations(['requests'])
@@ -55,14 +58,12 @@ tracer = Tracer(
     sampler=ProbabilitySampler(1.0),
 )
 
-
 # Requests
 middleware = FlaskMiddleware(
     app,
     exporter=AzureExporter(connection_string=connectionString),
     sampler=ProbabilitySampler(rate=1.0),
 )
-
 
 if ("VOTE1VALUE" in os.environ and os.environ['VOTE1VALUE']):
     button1 = os.environ['VOTE1VALUE']
@@ -82,6 +83,7 @@ else:
 # Redis Connection
 r = redis.Redis()
 
+
 # Change title to host name to demo NLB
 if app.config['SHOWHOST'] == "true":
     title = socket.gethostname()
@@ -97,11 +99,11 @@ def index():
 
         # Get current values
         vote1 = r.get(button1).decode('utf-8')
-        # TODO: use tracer object to trace cat vote
+        # use tracer object to trace cat vote
         tracer.span(name=button1)
 
         vote2 = r.get(button2).decode('utf-8')
-        # TODO: use tracer object to trace dog vote
+        # use tracer object to trace dog vote
         tracer.span(name=button2)
 
         # Return index with values
@@ -116,12 +118,12 @@ def index():
             r.set(button2,0)
             vote1 = r.get(button1).decode('utf-8')
             properties = {'custom_dimensions': {'Cats Vote': vote1}}
-            # TODO: use logger object to log cat vote
+            # use logger object to log cat vote
             logger.info('Cat Voted', extra=properties)
 
             vote2 = r.get(button2).decode('utf-8')
             properties = {'custom_dimensions': {'Dogs Vote': vote2}}
-            # TODO: use logger object to log dog vote
+            # use logger object to log dog vote
             logger.info('Dog Voted', extra=properties)
             tracer.span(name=button2)
 
